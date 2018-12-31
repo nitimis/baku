@@ -2,44 +2,50 @@ import click
 
 import sass
 from os import walk
-from socketserver import TCPServer
-from http.server import SimpleHTTPRequestHandler
+try:
+    # Python 3
+    from socketserver import TCPServer
+    from http.server import SimpleHTTPRequestHandler
+except ImportError:
+    # Python 2
+    from SocketServer import TCPServer
+    from SimpleHTTPServer import SimpleHTTPRequestHandler
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from jinja2 import Environment, FileSystemLoader
 
-from src import data
+from baku_data import data
 
 PORT = 8000
 SRC_DIR = 'src'
 DIST_DIR = 'dist'
-SRC_SASS = f'{SRC_DIR}/sass'
-SRC_HTML = f'{SRC_DIR}/templates'
-SRC_MEDIA = f'{SRC_DIR}/media'
-DIST_ASSETS = f'{DIST_DIR}/assets'
-DIST_JS = f'{DIST_ASSETS}/js'
-DIST_CSS = f'{DIST_ASSETS}/css'
-DIST_MEDIA = f'{DIST_ASSETS}/media'
+SRC_SASS = '%s/sass' % SRC_DIR
+SRC_HTML = '%s/templates' % SRC_DIR
+SRC_MEDIA = '%s/media' % SRC_DIR
+DIST_ASSETS = '%s/assets' % DIST_DIR
+DIST_JS = '%s/js' % DIST_ASSETS
+DIST_CSS = '%s/css' % DIST_ASSETS
+DIST_MEDIA = '%s/media' % DIST_ASSETS
 
 env = Environment(loader=FileSystemLoader(SRC_HTML))
 
 
-def compile_all_templates():
+def build_templates():
     for root, dirs, files in walk(SRC_HTML):
         for file in files:
             template = env.get_template(file)
-            with open(f'{DIST_DIR}/{file}', 'w') as f:
+            with open("%s/%s" % (DIST_DIR, file), 'w') as f:
                 f.write(template.render(data=data))
 
 
-def compile_all_styles():
+def build_styles():
     sass.compile(dirname=(SRC_SASS, 'css'), output_style='compressed')
 
 
-def compile_all_files():
-    compile_all_templates()
-    compile_all_styles()
+def _build():
+    build_templates()
+    build_styles()
 
 
 class OutputHTTPRequestHandler(SimpleHTTPRequestHandler):
@@ -49,7 +55,7 @@ class OutputHTTPRequestHandler(SimpleHTTPRequestHandler):
     '''
 
     def translate_path(self, path):
-        return f'{DIST_DIR}/{path}'
+        return "%s/%s" % (DIST_DIR, path)
 
 
 class TemplateEventHandler(FileSystemEventHandler):
@@ -60,33 +66,38 @@ class TemplateEventHandler(FileSystemEventHandler):
         if not event.src_path.endswith('.html'):
             return
         print("TemplateEventHandler: ", event.event_type, event.src_path)
-        compile_all_templates()
+        build_templates()
 
 
-class SASSEventHandler(FileSystemEventHandler):
+class StyleEventHandler(FileSystemEventHandler):
     '''
     A watchdog event handler class to compile template files
     '''
     def on_any_event(self, event):
         if not event.src_path.endswith('.sass'):
             return
-        print("SASSEventHandler: ", event.event_type, event.src_path)
-        compile_all_styles()
+        print("StyleEventHandler: ", event.event_type, event.src_path)
+        build_styles()
 
 
-@click.command()
+@click.group()
 def cli():
-    """Example script."""
-    click.echo('Hello World!')
+    pass
 
 
-if __name__ == "__main__":
+@cli.command()
+def build():
+    _build()
+
+
+@cli.command()
+def serve():
+    _build()
     observer = Observer()
     observer.schedule(TemplateEventHandler(), SRC_HTML, recursive=True)
-    observer.schedule(SASSEventHandler(), SRC_SASS, recursive=True)
+    observer.schedule(StyleEventHandler(), SRC_SASS, recursive=True)
     observer.start()
     httpd = TCPServer(("", PORT), OutputHTTPRequestHandler)
-    compile_all_files()
     print("serving at port", PORT)
     try:
         httpd.serve_forever()

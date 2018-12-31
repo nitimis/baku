@@ -9,7 +9,7 @@ verify_ssl = true
 click = "*"
 watchdog = "*"
 jinja2 = "*"
-sass = "*"
+libsass = "*"
 
 [requires]
 python_version = "3.7"
