@@ -85,6 +85,12 @@ def cli():
     pass
 
 
+@click.group()
+def init():
+    # Initialize baku directory
+    pass
+
+
 @cli.command()
 def build():
     _build()
