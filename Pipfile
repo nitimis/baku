@@ -12,6 +12,7 @@ click = "*"
 watchdog = "*"
 jinja2 = "*"
 libsass = "*"
+pyyaml = "*"
 
 [requires]
 python_version = "3.7"
