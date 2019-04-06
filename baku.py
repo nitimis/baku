@@ -1,6 +1,4 @@
-import click
-
-import sass
+import logging
 from os import walk
 try:
     # Python 3
@@ -11,9 +9,11 @@ except ImportError:
     from SocketServer import TCPServer
     from SimpleHTTPServer import SimpleHTTPRequestHandler
 
+import sass
+import click
 from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
 from jinja2 import Environment, FileSystemLoader
+from watchdog.events import FileSystemEventHandler
 
 from baku_data import data
 
@@ -27,8 +27,11 @@ DIST_ASSETS = '%s/assets' % DIST_DIR
 DIST_JS = '%s/js' % DIST_ASSETS
 DIST_CSS = '%s/css' % DIST_ASSETS
 DIST_MEDIA = '%s/media' % DIST_ASSETS
+FORMAT = '%(asctime)-15s %(message)s'
 
 env = Environment(loader=FileSystemLoader(SRC_HTML))
+logging.basicConfig(format=FORMAT)
+logger = logging.getLogger(__name__)
 
 
 def build_templates():
@@ -44,6 +47,7 @@ def build_styles():
 
 
 def _build():
+    logger.info('Building templates and styles')
     build_templates()
     build_styles()
 
@@ -65,7 +69,8 @@ class TemplateEventHandler(FileSystemEventHandler):
     def on_any_event(self, event):
         if not event.src_path.endswith('.html'):
             return
-        print("TemplateEventHandler: ", event.event_type, event.src_path)
+        logger.info("TemplateEventHandler: %s %s" % (
+            event.event_type, event.src_path))
         build_templates()
 
 
@@ -76,7 +81,8 @@ class StyleEventHandler(FileSystemEventHandler):
     def on_any_event(self, event):
         if not event.src_path.endswith('.sass'):
             return
-        print("StyleEventHandler: ", event.event_type, event.src_path)
+        logger.info("StyleEventHandler: %s %s" % (
+            event.event_type, event.src_path))
         build_styles()
 
 
@@ -104,7 +110,7 @@ def serve():
     observer.schedule(StyleEventHandler(), SRC_SASS, recursive=True)
     observer.start()
     httpd = TCPServer(("", PORT), OutputHTTPRequestHandler)
-    print("serving at port", PORT)
+    logger.info("serving at port: %s" % PORT)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
